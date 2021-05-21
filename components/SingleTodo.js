@@ -1,8 +1,68 @@
+import { gql, useMutation } from '@apollo/client'
 import { TrashIcon } from '@heroicons/react/solid'
 
+import { GET_TODOS } from './TodoList'
+
+const DELETE_TODO = gql`
+  mutation DeleteTodo($id: uuid!) {
+    delete_todos_by_pk(id: $id) {
+      id
+      title
+    }
+  }
+`;
+
+const TOGGLE_TODO = gql`
+  mutation ToggleTodo($id: uuid!, $completed: Boolean!) {
+    update_todos_by_pk(
+      pk_columns: { id: $id }
+      _set: { completed: $completed }
+    ) {
+      id
+      completed
+    }
+  }
+`;
+
 const SingleTodo = ({ todo }) => {
-  const deleteTodo = () => {};
-  const toggleTodo = () => {};
+  const [deleteTodoMutation] = useMutation(DELETE_TODO);
+  const [toggleTodoMutation] = useMutation(TOGGLE_TODO);
+
+  const deleteTodo = () => {
+    deleteTodoMutation({
+      variables: { id: todo.id },
+      optimisticResponse: true,
+      update: (cache) => {
+        const data = cache.readQuery({ query: GET_TODOS });
+        const todos = data.todos.filter(({ id }) => id !== todo.id);
+        cache.writeQuery({
+          query: GET_TODOS,
+          data: { todos },
+        });
+      },
+    });
+  };
+
+  const toggleTodo = () => {
+    toggleTodoMutation({
+      variables: { id: todo.id, completed: !todo.completed },
+      optimisticResponse: true,
+      update: (cache) => {
+        const data = cache.readQuery({ query: GET_TODOS });
+        const todos = data.todos.map((t) => {
+          if (t.id === todo.id) {
+            return { ...t, completed: !todo.completed };
+          }
+          return t;
+        });
+
+        cache.writeQuery({
+          query: GET_TODOS,
+          data: { todos },
+        });
+      },
+    });
+  };
 
   return (
     <li key={todo.id} className='flex justify-between px-6 py-4'>

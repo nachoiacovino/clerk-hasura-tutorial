@@ -1,8 +1,10 @@
 import { gql, useMutation } from '@apollo/client'
 import { useState } from 'react'
 
+import { GET_TODOS } from './TodoList'
+
 const ADD_TODO = gql`
-  mutation addTodo($title: String!) {
+  mutation AddTodo($title: String!) {
     insert_todos_one(object: { title: $title }) {
       id
       title
@@ -20,6 +22,15 @@ const AddTodo = () => {
     e.preventDefault();
     addTodo({
       variables: { title },
+      update: (cache, { data }) => {
+        const existingTodos = cache.readQuery({
+          query: GET_TODOS,
+        });
+        cache.writeQuery({
+          query: GET_TODOS,
+          data: { todos: [data.insert_todos_one, ...existingTodos.todos] },
+        });
+      },
     });
   };
 
